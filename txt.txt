@@ -1,3 +1,0 @@
-Required:
-•	Build a form with Shadcn form components so students can select elective courses.
-•	Create a schedule view page using Shadcn table or calendar-style component.

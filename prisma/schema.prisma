@@ -1,0 +1,321 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================================
+// STRONG ENTITIES
+// =====================================================
+
+model Department {
+  deptId      String   @id @map("dept_id") @db.VarChar(10)
+  deptName    String   @map("dept_name") @db.VarChar(100)
+  buildingNo  String?  @map("building_no") @db.VarChar(20)
+  
+  // Relations
+  students    Student[]
+  courses     Course[]
+  rooms       Room[]
+  faculties   AffiliatedWith[]
+  
+  @@map("department")
+}
+
+model Room {
+  roomId      String   @id @map("room_id") @db.VarChar(10)
+  roomNumber  String   @map("room_number") @db.VarChar(20)
+  capacity    Int?
+  type        String?  @db.VarChar(50)
+  deptId      String?  @map("dept_id") @db.VarChar(10)
+  
+  // Relations
+  department  Department? @relation(fields: [deptId], references: [deptId])
+  facultyOffices Faculty[]
+  sections    Section[]
+  
+  @@map("room")
+}
+
+model Faculty {
+  facultyId   String   @id @map("faculty_id") @db.VarChar(10)
+  name        String   @db.VarChar(100)
+  position    String?  @db.VarChar(50)
+  email       String?  @unique @db.VarChar(100)
+  password    String   @db.VarChar(255)
+  office      String?  @db.VarChar(50)
+  roomId      String?  @map("room_id") @db.VarChar(10)
+  
+  // Relations
+  room        Room?    @relation(fields: [roomId], references: [roomId])
+  advisees    Student[]
+  departments AffiliatedWith[]
+  sections    Section[]
+  feedbacks   FeedbackFaculty[]
+  
+  @@map("faculty")
+}
+
+model Student {
+  id          String   @id @db.VarChar(10)
+  name        String   @db.VarChar(100)
+  level       String?  @db.VarChar(20)
+  status      String?  @db.VarChar(20)
+  email       String?  @unique @db.VarChar(100)
+  password    String   @db.VarChar(255)
+  deptId      String?  @map("dept_id") @db.VarChar(10)
+  advisorId   String?  @map("advisor_id") @db.VarChar(10)
+  
+  // Relations
+  department  Department? @relation(fields: [deptId], references: [deptId])
+  advisor     Faculty?    @relation(fields: [advisorId], references: [facultyId])
+  enrollments Enrolls[]
+  preferences Prefers[]
+  feedbacks   FeedbackStudent[]
+  
+  @@map("student")
+}
+
+model Course {
+  courseId    String   @id @map("course_id") @db.VarChar(10)
+  courseCode  String   @unique @map("course_code") @db.VarChar(20)
+  courseName  String   @map("course_name") @db.VarChar(150)
+  courseType  String?  @map("course_type") @db.VarChar(50)
+  deptId      String?  @map("dept_id") @db.VarChar(10)
+  
+  // Relations
+  department  Department? @relation(fields: [deptId], references: [deptId])
+  sections    Section[]
+  exams       Exam[]
+  timeSlots   TimeSlot[]
+  schedules   Contains[]
+  preferences Prefers[]
+  prerequisites     Requires[] @relation("CoursePrerequisites")
+  requiredByCourses Requires[] @relation("PrerequisiteCourses")
+  
+  @@map("course")
+}
+
+model Committee {
+  committeeId String   @id @map("committee_id") @db.VarChar(10)
+  name        String   @db.VarChar(100)
+  ruleType    String?  @map("rule_type") @db.VarChar(50)
+  email       String?  @unique @db.VarChar(100)
+  password    String   @db.VarChar(255)
+  
+  // Relations
+  rules       Rule[]
+  
+  @@map("committee")
+}
+
+model Rule {
+  ruleId          String    @id @map("rule_id") @db.VarChar(10)
+  ruleName        String    @map("rule_name") @db.VarChar(100)
+  ruleDescription String?   @map("rule_description") @db.Text
+  ruleType        String?   @map("rule_type") @db.VarChar(50)
+  isActive        Boolean   @default(true) @map("is_active")
+  priorityLevel   Int?      @map("priority_level")
+  createdBy       String?   @map("created_by") @db.VarChar(100)
+  modifiedDate    DateTime? @map("modified_date") @db.Date
+  committeeId     String?   @map("committee_id") @db.VarChar(10)
+  
+  // Relations
+  committee       Committee? @relation(fields: [committeeId], references: [committeeId])
+  schedules       FollowsRule[]
+  
+  @@map("rule")
+}
+
+model Schedule {
+  scheduleId      String   @id @map("schedule_id") @db.VarChar(10)
+  versionNumber   Int      @map("version_number")
+  semester        String   @db.VarChar(20)
+  year            Int
+  status          String?  @db.VarChar(20)
+  createdDate     DateTime? @map("created_date") @db.Date
+  
+  // Relations
+  courses         Contains[]
+  studentFeedbacks FeedbackStudent[]
+  facultyFeedbacks FeedbackFaculty[]
+  rules           FollowsRule[]
+  
+  @@map("schedule")
+}
+
+model TimeSlot {
+  timeSlotId  String   @id @map("timeslot_id") @db.VarChar(10)
+  dayOfWeek   String   @map("day_of_week") @db.VarChar(20)
+  startTime   DateTime @map("start_time") @db.Time
+  endTime     DateTime @map("end_time") @db.Time
+  courseId    String?  @map("course_id") @db.VarChar(10)
+  
+  // Relations
+  course      Course?  @relation(fields: [courseId], references: [courseId])
+  sections    ScheduledAt[]
+  
+  @@map("timeslot")
+}
+
+// =====================================================
+// WEAK ENTITIES
+// =====================================================
+
+model Section {
+  courseId          String  @map("course_id") @db.VarChar(10)
+  sectionNumber     String  @map("section_number") @db.VarChar(10)
+  maxEnrollment     Int?    @map("max_enrollment")
+  currentEnrollment Int?    @default(0) @map("current_enrollment")
+  roomId            String? @map("room_id") @db.VarChar(10)
+  facultyId         String? @map("faculty_id") @db.VarChar(10)
+  
+  // Relations
+  course      Course   @relation(fields: [courseId], references: [courseId], onDelete: Cascade)
+  room        Room?    @relation(fields: [roomId], references: [roomId])
+  faculty     Faculty? @relation(fields: [facultyId], references: [facultyId])
+  enrollments Enrolls[]
+  timeSlots   ScheduledAt[]
+  
+  @@id([courseId, sectionNumber])
+  @@map("section")
+}
+
+model Exam {
+  courseId    String   @map("course_id") @db.VarChar(10)
+  examType    String   @map("exam_type") @db.VarChar(50)
+  examDate    DateTime? @map("exam_date") @db.Date
+  
+  // Relations
+  course      Course   @relation(fields: [courseId], references: [courseId], onDelete: Cascade)
+  
+  @@id([courseId, examType])
+  @@map("exam")
+}
+
+// =====================================================
+// RELATIONSHIP TABLES (M:N)
+// =====================================================
+
+model AffiliatedWith {
+  deptId      String @map("dept_id") @db.VarChar(10)
+  facultyId   String @map("faculty_id") @db.VarChar(10)
+  
+  // Relations
+  department  Department @relation(fields: [deptId], references: [deptId], onDelete: Cascade)
+  faculty     Faculty    @relation(fields: [facultyId], references: [facultyId], onDelete: Cascade)
+  
+  @@id([deptId, facultyId])
+  @@map("affiliated_with")
+}
+
+model Enrolls {
+  studentId     String @map("student_id") @db.VarChar(10)
+  courseId      String @map("course_id") @db.VarChar(10)
+  sectionNumber String @map("section_number") @db.VarChar(10)
+  
+  // Relations
+  student       Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  section       Section @relation(fields: [courseId, sectionNumber], references: [courseId, sectionNumber], onDelete: Cascade)
+  
+  @@id([studentId, courseId, sectionNumber])
+  @@map("enrolls")
+}
+
+model ScheduledAt {
+  courseId      String @map("course_id") @db.VarChar(10)
+  sectionNumber String @map("section_number") @db.VarChar(10)
+  timeSlotId    String @map("timeslot_id") @db.VarChar(10)
+  
+  // Relations
+  section       Section  @relation(fields: [courseId, sectionNumber], references: [courseId, sectionNumber], onDelete: Cascade)
+  timeSlot      TimeSlot @relation(fields: [timeSlotId], references: [timeSlotId], onDelete: Cascade)
+  
+  @@id([courseId, sectionNumber, timeSlotId])
+  @@map("scheduled_at")
+}
+
+model Contains {
+  scheduleId  String @map("schedule_id") @db.VarChar(10)
+  courseId    String @map("course_id") @db.VarChar(10)
+  
+  // Relations
+  schedule    Schedule @relation(fields: [scheduleId], references: [scheduleId], onDelete: Cascade)
+  course      Course   @relation(fields: [courseId], references: [courseId], onDelete: Cascade)
+  
+  @@id([scheduleId, courseId])
+  @@map("contains")
+}
+
+model FeedbackStudent {
+  studentId   String @map("student_id") @db.VarChar(10)
+  scheduleId  String @map("schedule_id") @db.VarChar(10)
+  
+  // Relations
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  schedule    Schedule @relation(fields: [scheduleId], references: [scheduleId], onDelete: Cascade)
+  
+  @@id([studentId, scheduleId])
+  @@map("feedback_student")
+}
+
+model FeedbackFaculty {
+  facultyId   String @map("faculty_id") @db.VarChar(10)
+  scheduleId  String @map("schedule_id") @db.VarChar(10)
+  
+  // Relations
+  faculty     Faculty  @relation(fields: [facultyId], references: [facultyId], onDelete: Cascade)
+  schedule    Schedule @relation(fields: [scheduleId], references: [scheduleId], onDelete: Cascade)
+  
+  @@id([facultyId, scheduleId])
+  @@map("feedback_faculty")
+}
+
+model Prefers {
+  studentId       String  @map("student_id") @db.VarChar(10)
+  courseId        String  @map("course_id") @db.VarChar(10)
+  preferenceRank  Int?    @map("preference_rank")
+  semester        String? @db.VarChar(20)
+  status          String? @db.VarChar(20)
+  
+  // Relations
+  student         Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course          Course  @relation(fields: [courseId], references: [courseId], onDelete: Cascade)
+  
+  @@id([studentId, courseId])
+  @@map("prefers")
+}
+
+model FollowsRule {
+  scheduleId  String @map("schedule_id") @db.VarChar(10)
+  ruleId      String @map("rule_id") @db.VarChar(10)
+  
+  // Relations
+  schedule    Schedule @relation(fields: [scheduleId], references: [scheduleId], onDelete: Cascade)
+  rule        Rule     @relation(fields: [ruleId], references: [ruleId], onDelete: Cascade)
+  
+  @@id([scheduleId, ruleId])
+  @@map("follows_rule")
+}
+
+model Requires {
+  courseId        String @map("course_id") @db.VarChar(10)
+  prereqCourseId  String @map("prereq_course_id") @db.VarChar(10)
+  
+  // Relations
+  course          Course @relation("CoursePrerequisites", fields: [courseId], references: [courseId], onDelete: Cascade)
+  prerequisite    Course @relation("PrerequisiteCourses", fields: [prereqCourseId], references: [courseId], onDelete: Cascade)
+  
+  @@id([courseId, prereqCourseId])
+  @@map("requires")
+}
